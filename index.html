@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CMDB Validator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1c1c21;
+    --border: #2a2a32;
+    --purple: #8b6dff;
+    --purple-dim: #8b6dff22;
+    --green: #22c97a;
+    --green-dim: #22c97a18;
+    --red: #ff5b5b;
+    --red-dim: #ff5b5b18;
+    --amber: #f5a623;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--purple); }
+
+  .version-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--purple-dim);
+    color: var(--purple);
+    border: 1px solid #8b6dff44;
+    letter-spacing: 0.1em;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-left: auto;
+    transition: background 0.3s;
+    box-shadow: 0 0 0 3px transparent;
+  }
+
+  .status-dot.online {
+    background: var(--green);
+    box-shadow: 0 0 0 3px var(--green-dim);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--green-dim); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+  }
+
+  .status-label { font-size: 11px; color: var(--muted); }
+
+  /* ---- MAIN LAYOUT ---- */
+  .container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    flex: 1;
+    gap: 0;
+  }
+
+  /* ---- SIDEBAR ---- */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--surface);
+  }
+
+  .sidebar-section {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 0 4px;
+    margin-top: 8px;
+  }
+
+  /* ---- FILE UPLOAD CARD ---- */
+  .upload-card {
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .upload-card:hover { border-color: var(--purple); background: var(--purple-dim); }
+  .upload-card.loaded { border-color: var(--green); border-style: solid; background: var(--green-dim); }
+  .upload-card.loading { border-color: var(--amber); border-style: solid; }
+
+  .upload-card input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .upload-icon { font-size: 22px; margin-bottom: 6px; }
+
+  .upload-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .upload-sub {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .upload-filename {
+    font-size: 10px;
+    color: var(--green);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upload-spinner {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--amber);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-top: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- STATS ---- */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .stat-box .s-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .stat-box .s-val { font-size: 20px; font-weight: 700; font-family: var(--display); margin-top: 2px; }
+  .s-val.purple { color: var(--purple); }
+  .s-val.green { color: var(--green); }
+  .s-val.red { color: var(--red); }
+
+  /* ---- RUN BUTTON ---- */
+  .run-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--purple);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .run-btn:hover { background: #7a5cee; transform: translateY(-1px); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  /* ---- MAIN PANEL ---- */
+  .main {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 16px;
+    overflow: hidden;
+  }
+
+  /* ---- TABS ---- */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab-btn {
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+
+  .tab-btn.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* ---- TERMINAL ---- */
+  .terminal-wrap {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .t-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .terminal-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 6px;
+    letter-spacing: 0.06em;
+  }
+
+  .terminal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 12.5px;
+    line-height: 2;
+    max-height: 420px;
+  }
+
+  .t-line { display: flex; align-items: baseline; gap: 10px; }
+  .t-prompt { color: var(--muted); user-select: none; flex-shrink: 0; font-size: 11px; }
+  .t-ok { color: var(--green); }
+  .t-err { color: var(--red); }
+  .t-info { color: var(--purple); }
+  .t-dim { color: var(--muted); font-size: 11px; }
+
+  .result-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    margin-left: 4px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .badge-ok { background: var(--green-dim); color: var(--green); border: 1px solid #22c97a33; }
+  .badge-fail { background: var(--red-dim); color: var(--red); border: 1px solid #ff5b5b33; }
+
+  /* ---- MANUAL SEARCH PANEL ---- */
+  .search-panel { display: none; flex-direction: column; gap: 14px; }
+  .search-panel.visible { display: flex; }
+
+  .search-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--purple); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-go {
+    padding: 10px 18px;
+    background: var(--purple);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .search-go:hover { background: #7a5cee; }
+
+  /* ---- PROGRESS ---- */
+  .progress-wrap {
+    background: var(--surface2);
+    border-radius: 20px;
+    height: 4px;
+    overflow: hidden;
+    margin: 4px 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 20px;
+    background: linear-gradient(90deg, var(--purple), var(--green));
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+
+  .tab-panel { display: none; flex-direction: column; gap: 12px; flex: 1; }
+  .tab-panel.visible { display: flex; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CMDB<span>.</span>Validator</div>
+  <div class="version-badge">v2.0</div>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+    <span class="status-label" id="status-label">offline</span>
+    <div class="status-dot" id="status-dot"></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="sidebar-section">01 / files</div>
+
+    <!-- CMDB Upload -->
+    <div class="upload-card" id="cmdb-card">
+      <input type="file" accept=".xlsx" id="cmdb-input" onchange="uploadCMDB(this)" />
+      <div class="upload-icon">📊</div>
+      <div class="upload-title">CMDB Excel</div>
+      <div class="upload-sub">.xlsx — master database</div>
+      <div class="upload-spinner" id="cmdb-spin"></div>
+      <div class="upload-filename" id="cmdb-fname" style="display:none"></div>
+    </div>
+
+    <!-- PDF Upload -->
+    <div class="upload-card" id="pdf-card">
+      <input type="file" accept=".pdf" id="pdf-input" onchange="uploadPDF(this)" />
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Audit Report PDF</div>
+      <div class="upload-sub">.pdf — report to scan</div>
+      <div class="upload-spinner" id="pdf-spin"></div>
+      <div class="upload-filename" id="pdf-fname" style="display:none"></div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:12px">02 / stats</div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="s-label">extracted</div>
+        <div class="s-val purple" id="st-total">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">found</div>
+        <div class="s-val green" id="st-ok">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">missing</div>
+        <div class="s-val red" id="st-fail">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">cmdb rows</div>
+        <div class="s-val purple" id="st-rows">—</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top:12px">03 / action</div>
+
+    <button class="run-btn" id="run-btn" onclick="runValidation()" disabled>
+      ▶ Run Validation
+    </button>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('auto', this)">Auto Validate</button>
+      <button class="tab-btn" onclick="switchTab('manual', this)">Manual Search</button>
+    </div>
+
+    <!-- AUTO TAB -->
+    <div class="tab-panel visible" id="tab-auto">
+      <div class="progress-wrap"><div class="progress-fill" id="prog"></div></div>
+      <div class="terminal-wrap">
+        <div class="terminal-bar">
+          <div class="t-dot" style="background:#ff5b5b"></div>
+          <div class="t-dot" style="background:#f5a623"></div>
+          <div class="t-dot" style="background:#22c97a"></div>
+          <div class="terminal-title">output — validation log</div>
+        </div>
+        <div class="terminal-body" id="log">
+          <div class="t-line"><span class="t-prompt">&gt;</span><span class="t-dim">waiting for files...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div class="tab-panel" id="tab-manual">
+      <div class="search-input-row">
+        <input class="search-input" id="manual-q" placeholder="Enter IP or Hostname (e.g. 192.168.1.10 or SRV-001)" onkeydown="if(event.key==='Enter') manualSearch()" />
+        <button class="search-go" onclick="manualSearch()">Search →</button>
+      </div>
+      <div class="terminal-wrap">
+        <div class="terminal-bar">
+          <div class="t-dot" style="background:#ff5b5b"></div>
+          <div class="t-dot" style="background:#f5a623"></div>
+          <div class="t-dot" style="background:#22c97a"></div>
+          <div class="terminal-title">output — search log</div>
+        </div>
+        <div class="terminal-body" id="manual-log">
+          <div class="t-line"><span class="t-prompt">&gt;</span><span class="t-dim">type above and press Enter...</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = "";  // same origin
+
+let cmdbReady = false, pdfReady = false;
+
+function log(target, html, cls="") {
+  const el = document.getElementById(target);
+  const div = document.createElement("div");
+  div.className = "t-line";
+  div.innerHTML = `<span class="t-prompt">$</span><span class="${cls}">${html}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(online) {
+  document.getElementById("status-dot").className = "status-dot" + (online ? " online" : "");
+  document.getElementById("status-label").textContent = online ? "backend online" : "offline";
+}
+
+async function checkBackend() {
+  try {
+    const r = await fetch("/");
+    if (r.ok) setStatus(true);
+  } catch { setStatus(false); }
+}
+
+async function uploadCMDB(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const card = document.getElementById("cmdb-card");
+  const spin = document.getElementById("cmdb-spin");
+  const fname = document.getElementById("cmdb-fname");
+  card.classList.add("loading");
+  spin.style.display = "block";
+
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await fetch("/upload-cmdb", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    card.classList.remove("loading");
+    card.classList.add("loaded");
+    spin.style.display = "none";
+    fname.style.display = "block";
+    fname.textContent = "✓ " + file.name;
+    document.getElementById("st-rows").textContent = data.entries;
+    cmdbReady = true;
+    checkRunReady();
+    log("log", `CMDB loaded — ${data.entries} entries indexed`, "t-ok");
+  } catch(e) {
+    card.classList.remove("loading");
+    spin.style.display = "none";
+    log("log", "Error loading CMDB: " + e.message, "t-err");
+  }
+}
+
+function uploadPDF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const card = document.getElementById("pdf-card");
+  const fname = document.getElementById("pdf-fname");
+  card.classList.add("loaded");
+  fname.style.display = "block";
+  fname.textContent = "✓ " + file.name;
+  pdfReady = true;
+  checkRunReady();
+  log("log", `PDF selected — ${file.name}`, "t-info");
+}
+
+function checkRunReady() {
+  document.getElementById("run-btn").disabled = !(cmdbReady && pdfReady);
+}
+
+async function runValidation() {
+  const pdfFile = document.getElementById("pdf-input").files[0];
+  if (!pdfFile) return;
+
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = "";
+  log("log", "Starting validation...", "t-info");
+
+  const fd = new FormData();
+  fd.append("file", pdfFile);
+
+  try {
+    const res = await fetch("/validate-pdf", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const entities = data.entities;
+    let ok = 0, fail = 0;
+    const prog = document.getElementById("prog");
+
+    log("log", `Extracted ${entities.length} entities`, "t-info");
+
+    entities.forEach((e, i) => {
+      setTimeout(() => {
+        const pct = Math.round(((i + 1) / entities.length) * 100);
+        prog.style.width = pct + "%";
+        if (e.status === "found") {
+          ok++;
+          log("log", `${e.entity} <span class="result-badge badge-ok">FOUND — row ${e.row}</span>`, "t-ok");
+        } else {
+          fail++;
+          log("log", `${e.entity} <span class="result-badge badge-fail">NOT IN CMDB</span>`, "t-err");
+        }
+        document.getElementById("st-total").textContent = entities.length;
+        document.getElementById("st-ok").textContent = ok;
+        document.getElementById("st-fail").textContent = fail;
+
+        if (i === entities.length - 1) {
+          log("log", `Done — ${ok} found, ${fail} missing`, "t-info");
+        }
+      }, i * 120);
+    });
+  } catch(e) {
+    log("log", "Error: " + e.message, "t-err");
+  }
+}
+
+async function manualSearch() {
+  const q = document.getElementById("manual-q").value.trim();
+  if (!q) return;
+  try {
+    const res = await fetch("/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q })
+    });
+    const data = await res.json();
+    if (data.error) {
+      log("manual-log", "Error: " + data.error, "t-err");
+    } else if (data.status === "found") {
+      log("manual-log", `${q} <span class="result-badge badge-ok">FOUND — row ${data.row}</span>`, "t-ok");
+    } else {
+      log("manual-log", `${q} <span class="result-badge badge-fail">NOT IN CMDB</span>`, "t-err");
+    }
+  } catch(e) {
+    log("manual-log", "Backend offline — run app.py first", "t-err");
+  }
+  document.getElementById("manual-q").value = "";
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("visible"));
+  btn.classList.add("active");
+  document.getElementById("tab-" + name).classList.add("visible");
+}
+
+checkBackend();
+</script>
+</body>
+</html>
