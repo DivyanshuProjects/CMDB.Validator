@@ -1,6 +1,6 @@
-# 🔥 InfraAudit Tool
+# 🔥 CMDB.Validator
 
-**InfraAudit Tool** is a lightweight GRC automation solution designed to validate network diagram data (PDF) against a CMDB (Excel).
+**CMDB.Validator** is a lightweight GRC automation tool designed to validate network diagram data (PDF) against a CMDB (Excel).
 It supports both **automatic extraction** and **manual validation**, making it ideal for audit, compliance, and infrastructure verification tasks.
 
 ---
@@ -49,9 +49,19 @@ It supports both **automatic extraction** and **manual validation**, making it i
 
 Install required libraries:
 
-```bash
+```bash id="9l3k2x"
 pip install pymupdf pandas openpyxl
 ```
+
+---
+
+## ▶️ How to Run
+
+```bash id="8mz1qp"
+python main.py
+```
+
+---
 
 ## 🧪 Workflow
 
@@ -61,17 +71,8 @@ pip install pymupdf pandas openpyxl
 4. (Optional) Use **Manual Search Mode**
 
 ---
+<img width="974" height="724" alt="image" src="https://github.com/user-attachments/assets/6a63e687-3530-4e13-a5c5-83fce3a90e4f" />
 
-## 📌 Example Output
-
-```
-FW-01 -> [OK] Found at Row 2  
-192.168.1.1 -> [OK] Found at Row 2  
-SW-01 -> [OK] Found at Row 3  
-192.168.1.50 -> [X] Not Found  
-```
-
----
 
 ## 🔒 Security & Compatibility
 
